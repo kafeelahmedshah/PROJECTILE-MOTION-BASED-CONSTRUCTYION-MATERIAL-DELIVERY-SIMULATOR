@@ -4,204 +4,149 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(
-    page_title="Projectile Motion | Construction Material Delivery",
-    page_icon="🏗️",
-    layout="wide",
-)
+st.set_page_config(page_title="Projectile Motion Simulator", page_icon="🏗️", layout="wide")
 
 st.markdown("""
 <style>
-.main-header {font-size:2.1rem;font-weight:800;line-height:1.2;}
-.sub-header {color:#64748b;font-size:1rem;}
-.metric-card {padding:14px;border:1px solid rgba(128,128,128,.25);border-radius:12px;}
-.small-note {font-size:.88rem;color:#64748b;}
+.block-container{padding-top:1.2rem}
+.hero{padding:1.2rem;border-radius:14px;background:linear-gradient(110deg,#10243a,#1e5670);color:white}
+.hero h1{font-size:2.2rem;margin:0}.hero p{font-size:1.05rem;margin:.4rem 0 0}
+.team{padding:12px;border:1px solid #8886;border-radius:10px;text-align:center;font-weight:700}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="main-header">🏗️ Projectile Motion Based Construction Material Delivery Simulator</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">An interactive physics working model for understanding projectile motion and material delivery.</div>', unsafe_allow_html=True)
+st.sidebar.title("🎛️ Presentation Controls")
+project_title = st.sidebar.text_input("Project title", "Projectile Motion Based Construction Material Delivery Simulator")
+intro = st.sidebar.text_area("Introduction paragraph (editable)", "This project demonstrates how an object carrying construction material moves through the air after being launched. By changing launch speed, launch angle and launch height, we can study its trajectory and predict where it lands.", height=120)
+talk_track = st.sidebar.text_area("Presentation explanation (editable)", "First, we select the launch speed, angle and height. Then the simulator calculates the horizontal and vertical components, flight time, maximum height and range. Finally, we compare the landing point with the target.", height=120)
+large = st.sidebar.toggle("Projector-friendly large text", True)
 
-with st.expander("👥 Project Development Team", expanded=True):
-    st.markdown("**Developed by the following team members:**")
-    team_cols = st.columns(4)
-    team_ids = ["BSPHY-2025-017", "BSPHY-2025-044", "BSPHY-2025-006", "BSPHY-2025-002"]
-    for col, student_id in zip(team_cols, team_ids):
-        col.markdown(f"**{student_id}**")
+st.sidebar.divider()
+st.sidebar.subheader("Launch settings")
+material = st.sidebar.selectbox("Construction material example", ["Brick", "Cement bag", "Sand bag", "Concrete block", "Other material"])
+u = st.sidebar.slider("Initial velocity (m/s)", 1.0, 50.0, 20.0, 0.5)
+angle = st.sidebar.slider("Launch angle (degrees)", 1, 89, 45, 1)
+h0 = st.sidebar.slider("Launch height (m)", 0.0, 30.0, 2.0, 0.5)
+g = st.sidebar.selectbox("Gravity (m/s²)", [9.81, 9.80, 10.0], index=0)
+target = st.sidebar.slider("Target distance (m)", 1.0, 200.0, 30.0, 1.0)
+tolerance = st.sidebar.slider("Target tolerance (m)", 0.5, 15.0, 2.0, 0.5)
 
-st.divider()
+theta = math.radians(angle)
+ux, uy = u * math.cos(theta), u * math.sin(theta)
+flight = (uy + math.sqrt(uy**2 + 2*g*h0)) / g
+t_peak = uy / g
+height_max = h0 + uy**2/(2*g)
+reach = ux * flight
+ts = np.linspace(0, flight, 400)
+xs = ux * ts
+ys = np.maximum(0, h0 + uy*ts - 0.5*g*ts**2)
+distance_path = float(np.sum(np.hypot(np.diff(xs), np.diff(ys))))
+err = abs(reach-target)
+font = 18 if large else 13
 
-st.sidebar.header("⚙️ Simulation Controls")
-st.sidebar.caption("Change the values to see how the projectile path changes.")
+st.markdown(f'<div class="hero"><h1>🏗️ {project_title}</h1><p>Interactive Physics Working Model | Construction Material Delivery</p></div>', unsafe_allow_html=True)
+st.markdown(f"<div style='font-size:{font}px;line-height:1.6;margin-top:16px'>{intro}</div>", unsafe_allow_html=True)
+st.markdown("### 👥 Project Development Team")
+cols = st.columns(4)
+for c, roll in zip(cols, ["BSPHY-2025-017","BSPHY-2025-044","BSPHY-2025-006","BSPHY-2025-002"]):
+    c.markdown(f'<div class="team">{roll}</div>', unsafe_allow_html=True)
 
-material = st.sidebar.selectbox(
-    "Construction material",
-    ["Brick", "Cement bag", "Sand bag", "Concrete block", "Other material"]
-)
-velocity = st.sidebar.slider("Initial velocity (m/s)", 1.0, 40.0, 20.0, 0.5)
-angle_deg = st.sidebar.slider("Launch angle (degrees)", 1, 89, 45, 1)
-launch_height = st.sidebar.slider("Launch height (m)", 0.0, 20.0, 2.0, 0.5)
-gravity = st.sidebar.selectbox("Gravitational acceleration (m/s²)", [9.81, 9.80, 10.0], index=0)
-target_distance = st.sidebar.slider("Construction target distance (m)", 1.0, 150.0, 30.0, 1.0)
-tolerance = st.sidebar.slider("Target tolerance (m)", 0.5, 10.0, 2.0, 0.5)
+sim, concepts, vectors, present = st.tabs(["🚀 Live Simulator","📚 Physics Concepts","🧭 Vector & Motion Analysis","🎤 Presentation Mode"])
 
-theta = math.radians(angle_deg)
-vx0 = velocity * math.cos(theta)
-vy0 = velocity * math.sin(theta)
-
-# Solve y(t) = h0 + vy0*t - 0.5*g*t^2 = 0 for the positive landing time.
-discriminant = vy0**2 + 2 * gravity * launch_height
-flight_time = (vy0 + math.sqrt(discriminant)) / gravity
-range_x = vx0 * flight_time
-max_height = launch_height + (vy0**2) / (2 * gravity)
-time_to_peak = vy0 / gravity
-
-# A safe time sample for plotting the complete trajectory.
-times = np.linspace(0, flight_time, 300)
-xs = vx0 * times
-ys = launch_height + vy0 * times - 0.5 * gravity * times**2
-ys = np.maximum(ys, 0)
-
-# Distance travelled along the curved path, approximated numerically.
-path_distance = float(np.sum(np.sqrt(np.diff(xs)**2 + np.diff(ys)**2)))
-
-st.subheader("📊 Main Simulation Results")
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Time of flight", f"{flight_time:.2f} s")
-m2.metric("Maximum height", f"{max_height:.2f} m")
-m3.metric("Horizontal range", f"{range_x:.2f} m")
-m4.metric("Time to maximum height", f"{time_to_peak:.2f} s")
-
-st.divider()
-left, right = st.columns([1.65, 1])
-
-with left:
-    st.subheader("📈 Projectile Trajectory")
+with sim:
+    st.subheader("Live Projectile Trajectory")
+    st.caption(f"Selected example: {material}. Change controls in the sidebar and observe the graph.")
+    m = st.columns(4)
+    m[0].metric("Time of flight", f"{flight:.2f} s")
+    m[1].metric("Maximum height", f"{height_max:.2f} m")
+    m[2].metric("Horizontal range", f"{reach:.2f} m")
+    m[3].metric("Time to peak", f"{t_peak:.2f} s")
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=xs, y=ys, mode="lines", name="Projectile path",
-        line=dict(width=4), hovertemplate="Distance: %{x:.2f} m<br>Height: %{y:.2f} m<extra></extra>"
-    ))
-    fig.add_trace(go.Scatter(
-        x=[0, range_x], y=[launch_height, 0], mode="markers",
-        name="Launch / landing", marker=dict(size=10),
-        hovertemplate="x: %{x:.2f} m<br>y: %{y:.2f} m<extra></extra>"
-    ))
-    fig.add_trace(go.Scatter(
-        x=[target_distance], y=[0], mode="markers+text",
-        name="Construction target", marker=dict(size=15, symbol="x"),
-        text=["Target"], textposition="top center"
-    ))
-    fig.add_hline(y=0, line_width=2, line_color="gray")
-    fig.update_layout(
-        xaxis_title="Horizontal distance (m)",
-        yaxis_title="Vertical height (m)",
-        height=470, template="plotly_white",
-        legend=dict(orientation="h", y=1.12),
-        margin=dict(l=10, r=10, t=35, b=10),
-    )
-    fig.update_xaxes(rangemode="tozero")
-    fig.update_yaxes(rangemode="tozero")
-    st.plotly_chart(fig, use_container_width=True)
-
-with right:
-    st.subheader("🎯 Delivery Assessment")
-    error = abs(range_x - target_distance)
-    if error <= tolerance:
-        st.success(f"Target reached within tolerance!\n\nLanding error: {error:.2f} m")
+    fig.add_trace(go.Scatter(x=xs,y=ys,mode="lines",name="Projectile trajectory",line=dict(width=4),hovertemplate="x: %{x:.2f} m<br>y: %{y:.2f} m<extra></extra>"))
+    fig.add_trace(go.Scatter(x=[0,reach],y=[h0,0],mode="markers",name="Launch and landing",marker=dict(size=11)))
+    fig.add_trace(go.Scatter(x=[target],y=[0],mode="markers+text",name="Target",marker=dict(size=15,symbol="x"),text=["Target"],textposition="top center"))
+    fig.update_layout(template="plotly_white",height=520,xaxis_title="Horizontal distance (m)",yaxis_title="Vertical height (m)",legend=dict(orientation="h",y=1.12),font=dict(size=font))
+    fig.update_xaxes(rangemode="tozero"); fig.update_yaxes(rangemode="tozero")
+    st.plotly_chart(fig,use_container_width=True)
+    if err <= tolerance:
+        st.success(f"Target reached within tolerance. Landing error: {err:.2f} m")
     else:
-        st.warning(f"Target missed.\n\nLanding error: {error:.2f} m")
-    st.write(f"**Predicted landing position:** {range_x:.2f} m")
-    st.write(f"**Target position:** {target_distance:.2f} m")
-    st.write(f"**Difference:** {error:.2f} m")
-    st.caption("Try adjusting the launch angle or initial velocity to bring the landing point closer to the target.")
+        st.warning(f"Target missed. Landing error: {err:.2f} m. Adjust launch speed or angle.")
+    a,b,c=st.columns(3)
+    a.metric("Target distance",f"{target:.2f} m"); b.metric("Landing distance",f"{reach:.2f} m"); c.metric("Landing error",f"{err:.2f} m")
+    st.subheader("Inspect motion at any time")
+    t_now=st.slider("Simulation time (s)",0.0,float(flight),float(flight/2),step=max(float(flight/250),0.001))
+    x_now=ux*t_now; y_now=max(0.0,h0+uy*t_now-.5*g*t_now**2); vy_now=uy-g*t_now
+    speed=math.hypot(ux,vy_now); disp=math.hypot(x_now,y_now-h0)
+    q=st.columns(4)
+    q[0].metric("Current x",f"{x_now:.2f} m"); q[1].metric("Current y",f"{y_now:.2f} m")
+    q[2].metric("Current speed",f"{speed:.2f} m/s"); q[3].metric("Displacement",f"{disp:.2f} m")
+
+with concepts:
+    st.subheader("Physics Principles Explained")
+    explain = [
+    ("Projectile Motion","The motion of an object launched into the air and then moving under gravity. In the ideal model, its path is a parabola."),
+    ("Horizontal and Vertical Components","Initial velocity is split into perpendicular components: uₓ = u cos θ and uᵧ = u sin θ. Horizontal velocity remains constant if air resistance is ignored; vertical velocity changes due to gravity."),
+    ("Initial Velocity and Launch Angle","Initial velocity (u) is the launch speed. Launch angle (θ) is measured above the horizontal. Both affect flight time, height and range."),
+    ("Acceleration Due to Gravity","Near Earth's surface, g is approximately 9.81 m/s² downward. Taking upward as positive gives aₓ = 0 and aᵧ = −g."),
+    ("Time of Flight","Total time from launch until the object reaches ground level: T = [u sin θ + √((u sin θ)² + 2gh₀)] / g."),
+    ("Maximum Height","The highest vertical position. At the peak, vertical velocity is zero: H = h₀ + (u sin θ)²/(2g)."),
+    ("Horizontal Range","Horizontal distance from launch to landing: R = (u cos θ)T. If launch and landing heights are equal, R = u² sin(2θ)/g."),
+    ("Trajectory of Projectile","The curved path of the object. Its equation is y = h₀ + x tan θ − gx²/(2u²cos²θ)."),
+    ]
+    for title, body in explain:
+        with st.expander(title,expanded=True):
+            st.markdown(f"<div style='font-size:{font}px;line-height:1.6'>{body}</div>",unsafe_allow_html=True)
+    st.markdown("### Formula Summary")
+    st.latex(r"u_x=u\cos\theta \qquad u_y=u\sin\theta")
+    st.latex(r"x(t)=u\cos\theta\ t")
+    st.latex(r"y(t)=h_0+u\sin\theta\ t-\frac{1}{2}gt^2")
+    st.latex(r"T=\frac{u\sin\theta+\sqrt{(u\sin\theta)^2+2gh_0}}{g}")
+    st.latex(r"H_{\max}=h_0+\frac{(u\sin\theta)^2}{2g}\qquad R=(u\cos\theta)T")
+
+with vectors:
+    st.subheader("Vector Analysis")
+    st.write("Velocity is a vector because it has magnitude and direction.")
+    a,b,c=st.columns(3)
+    a.metric("Initial horizontal velocity",f"{ux:.2f} m/s"); b.metric("Initial vertical velocity",f"{uy:.2f} m/s"); c.metric("Initial resultant velocity",f"{u:.2f} m/s")
+    vf=go.Figure()
+    vf.add_trace(go.Scatter(x=[0,ux],y=[0,uy],mode="lines+markers",name="Initial velocity vector",line=dict(width=5)))
+    vf.add_trace(go.Scatter(x=[0,ux],y=[0,0],mode="lines+markers",name="Horizontal component",line=dict(width=3,dash="dash")))
+    vf.add_trace(go.Scatter(x=[ux,ux],y=[0,uy],mode="lines+markers",name="Vertical component",line=dict(width=3,dash="dash")))
+    vf.update_layout(template="plotly_white",height=380,xaxis_title="Horizontal velocity (m/s)",yaxis_title="Vertical velocity (m/s)",font=dict(size=font))
+    st.plotly_chart(vf,use_container_width=True)
+    st.subheader("Distance and Displacement")
+    st.write(f"**Distance travelled along curved path:** approximately {distance_path:.2f} m.")
+    st.write(f"**Displacement at landing:** {math.hypot(reach,-h0):.2f} m (straight-line change from launch to landing).")
+    st.info("Distance is the total length of the path. Displacement is the straight-line change from starting point to ending point.")
+    st.subheader("Velocity and Acceleration")
+    st.write(f"At t = {t_now:.2f} s, Vₓ = {ux:.2f} m/s, Vᵧ = {vy_now:.2f} m/s and resultant speed = {speed:.2f} m/s.")
+    st.write(f"Acceleration: aₓ = 0 m/s² and aᵧ = −{g:.2f} m/s² (downward).")
+
+with present:
+    st.subheader("Projector Presentation Mode")
+    st.markdown(f"<div style='font-size:{font+2}px;line-height:1.7'>{talk_track}</div>",unsafe_allow_html=True)
+    st.markdown("### What this model demonstrates")
+    for item in [
+        "Set the initial speed, launch angle and launch height.",
+        "Resolve initial velocity into horizontal and vertical components.",
+        "Observe gravity changing vertical velocity while horizontal velocity stays constant in the ideal model.",
+        "See the parabolic trajectory and landing point on the graph.",
+        "Calculate time of flight, maximum height and horizontal range.",
+        "Compare the landing point with a construction delivery target.",
+        "Inspect position, velocity, distance and displacement at a selected time."
+    ]: st.markdown(f"- {item}")
+    summary=pd.DataFrame({"Parameter":["Material","Initial velocity","Launch angle","Launch height","Gravity","Time of flight","Maximum height","Horizontal range","Target distance"],"Value":[material,f"{u:.2f} m/s",f"{angle}°",f"{h0:.2f} m",f"{g:.2f} m/s²",f"{flight:.2f} s",f"{height_max:.2f} m",f"{reach:.2f} m",f"{target:.2f} m"]})
+    st.dataframe(summary,use_container_width=True,hide_index=True)
+    st.download_button("Download simulation summary CSV",summary.to_csv(index=False).encode(), "simulation_summary.csv","text/csv")
 
 st.divider()
-st.subheader("⏱️ Inspect the Projectile at Any Time")
-selected_time = st.slider(
-    "Simulation time (seconds)", 0.0, float(flight_time),
-    min(float(flight_time), float(flight_time / 2)),
-    step=max(float(flight_time / 200), 0.001),
-)
-x_now = vx0 * selected_time
-y_now = max(0.0, launch_height + vy0 * selected_time - 0.5 * gravity * selected_time**2)
-vx_now = vx0
-vy_now = vy0 - gravity * selected_time
-speed_now = math.sqrt(vx_now**2 + vy_now**2)
-displacement = math.sqrt(x_now**2 + (y_now - launch_height)**2)
-
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Current horizontal position", f"{x_now:.2f} m")
-c2.metric("Current vertical height", f"{y_now:.2f} m")
-c3.metric("Current speed", f"{speed_now:.2f} m/s")
-c4.metric("Displacement from launch", f"{displacement:.2f} m")
-
-st.subheader("🧭 Vector Analysis")
-v1, v2, v3 = st.columns(3)
-v1.metric("Horizontal velocity (Vx)", f"{vx_now:.2f} m/s")
-v2.metric("Vertical velocity (Vy)", f"{vy_now:.2f} m/s")
-v3.metric("Acceleration due to gravity", f"{gravity:.2f} m/s² downward")
-
-st.markdown("#### Velocity components")
-st.latex(r"V_x = u\cos\theta")
-st.latex(r"V_y = u\sin\theta - gt")
-st.markdown("#### Position equations")
-st.latex(r"x = (u\cos\theta)t")
-st.latex(r"y = h_0 + (u\sin\theta)t - \frac{1}{2}gt^2")
-st.markdown("#### Important projectile formulas")
-f1, f2 = st.columns(2)
-with f1:
-    st.latex(r"T = \frac{u\sin\theta + \sqrt{(u\sin\theta)^2+2gh_0}}{g}")
-    st.latex(r"H_{max}=h_0+\frac{(u\sin\theta)^2}{2g}")
-with f2:
-    st.latex(r"R = (u\cos\theta)T")
-    st.latex(r" a_x=0,\quad a_y=-g")
-
-st.divider()
-st.subheader("📋 Motion Data Table")
-sample_times = np.linspace(0, flight_time, 11)
-table_x = vx0 * sample_times
-table_y = np.maximum(0, launch_height + vy0 * sample_times - 0.5 * gravity * sample_times**2)
-table_vy = vy0 - gravity * sample_times
-table_speed = np.sqrt(vx0**2 + table_vy**2)
-motion_df = pd.DataFrame({
-    "Time (s)": np.round(sample_times, 2),
-    "Horizontal position (m)": np.round(table_x, 2),
-    "Vertical position (m)": np.round(table_y, 2),
-    "Horizontal velocity (m/s)": np.round(np.full_like(sample_times, vx0), 2),
-    "Vertical velocity (m/s)": np.round(table_vy, 2),
-    "Speed (m/s)": np.round(table_speed, 2),
-})
-st.dataframe(motion_df, use_container_width=True, hide_index=True)
-csv = motion_df.to_csv(index=False).encode("utf-8")
-st.download_button("⬇️ Download motion data (CSV)", data=csv, file_name="projectile_motion_data.csv", mime="text/csv")
-
-st.divider()
-st.subheader("📚 Physics Concepts Demonstrated")
-concepts = [
-    ("Projectile motion", "The curved path followed by an object launched into the air."),
-    ("Horizontal component", "Horizontal velocity remains constant when air resistance is ignored."),
-    ("Vertical component", "Vertical velocity changes because of gravitational acceleration."),
-    ("Initial velocity and angle", "The launch speed is resolved into horizontal and vertical components."),
-    ("Time of flight", "The total time from launch until the projectile reaches ground level."),
-    ("Maximum height", "The greatest vertical height reached by the projectile."),
-    ("Horizontal range", "The horizontal distance from launch point to landing point."),
-    ("Trajectory", "The parabolic path followed in the ideal projectile model."),
-    ("Distance and displacement", "Distance is the path length; displacement is the straight-line change in position."),
-    ("Velocity and acceleration", "Velocity describes the rate of position change; acceleration describes the rate of velocity change."),
-]
-for title, description in concepts:
-    with st.expander(title):
-        st.write(description)
-
-with st.expander("⚠️ Model assumptions and limitations"):
-    st.write("""
-    - This is an ideal projectile-motion model.
-    - Air resistance, wind, rotation, collisions, and changes in launch speed are ignored.
-    - The material is treated as a point object.
-    - The material's mass does not change the trajectory in this ideal model.
-    - The landing surface is assumed to be level with the ground reference (y = 0).
-    - This is an educational simulator, not a real construction-site equipment safety or engineering tool.
-    """)
-
+st.subheader("Model Assumptions and Safety Note")
+st.markdown("""
+- This is an educational physics simulator, not a real construction-site delivery or equipment-control system.
+- Air resistance, wind, object rotation, tumbling, collisions and obstacles are not modelled.
+- The material is treated as a point object. In this ideal model, mass does not change the trajectory.
+- The landing surface is assumed to be level with the ground reference (y = 0).
+- Do not use these calculations to launch or handle real construction materials.
+""")
 st.caption("University Physics Project | Projectile Motion Based Construction Material Delivery Simulator")

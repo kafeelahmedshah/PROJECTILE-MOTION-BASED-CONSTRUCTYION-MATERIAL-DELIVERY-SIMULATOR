@@ -1,90 +1,56 @@
 # Projectile Motion Based Construction Material Delivery Simulator
 
-An interactive Streamlit web application that demonstrates projectile motion through a construction-material delivery scenario.
+Interactive, projector-friendly Streamlit application for demonstrating projectile motion through a construction-material delivery example.
 
-## Features
-
-- Adjust initial velocity, launch angle, launch height, gravity, and target distance.
-- Visualize the projectile trajectory and landing point.
-- Calculate time of flight, maximum height, horizontal range, and time to peak.
-- Inspect position, velocity components, speed, and displacement at a selected time.
-- View a motion data table and download it as CSV.
-- Assess whether the projectile lands within the selected target tolerance.
-- Review the physics concepts and ideal-model assumptions.
-
-## Project files
-
-- `app.py` — Streamlit application
-- `requirements.txt` — Python dependencies
-- `README.md` — project documentation
-
-## Run locally
-
-1. Install Python 3.9 or later.
-2. Open a terminal in this project folder.
-3. Install the dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Start the app:
-
-   ```bash
-   streamlit run app.py
-   ```
-
-5. Open the local URL shown in the terminal (usually `http://localhost:8501`).
-
-## Deploy using GitHub and Streamlit Community Cloud
-
-1. Create a new public GitHub repository.
-2. Upload `app.py`, `requirements.txt`, and `README.md` to the repository's root folder.
-3. Sign in to Streamlit Community Cloud using your GitHub account.
-4. Select **Create app** and choose your repository, branch, and `app.py` as the main file.
-5. Click **Deploy**.
-
-## Physics model
-
-The application assumes ideal projectile motion with no air resistance.
-
-Let:
-- `u` = initial velocity (m/s)
-- `theta` = launch angle
-- `h0` = launch height (m)
-- `g` = gravitational acceleration (m/s²)
-- `t` = time (s)
-
-Velocity components:
-
-- `Vx = u cos(theta)`
-- `Vy = u sin(theta) - gt`
-
-Position:
-
-- `x = (u cos(theta))t`
-- `y = h0 + (u sin(theta))t - 0.5gt²`
-
-For landing at ground level (`y = 0`), the positive time of flight is:
-
-`T = (u sin(theta) + sqrt((u sin(theta))² + 2gh0)) / g`
-
-Maximum height:
-
-`Hmax = h0 + (u sin(theta))² / (2g)`
-
-Horizontal range:
-
-`R = (u cos(theta))T`
-
-## Important limitation
-
-This is an educational physics simulator, not a real-world construction-site delivery system. It does not model air resistance, wind, material shape, tumbling, collisions, obstacles, or equipment constraints. Do not use its results to plan or operate real material launches.
-
-
-## Project development team
-
+## Project Development Team
 - BSPHY-2025-017
 - BSPHY-2025-044
 - BSPHY-2025-006
 - BSPHY-2025-002
+
+## Features
+- Editable project title, introduction paragraph and presentation explanation in the sidebar.
+- Large-text mode for projector presentations.
+- Adjustable initial velocity, launch angle, launch height, gravity, target distance and target tolerance.
+- Live projectile trajectory graph with launch, target and landing markers.
+- Time of flight, maximum height, horizontal range and time-to-peak calculations.
+- Time slider to inspect position, speed and displacement.
+- Explanations and equations for all requested physics concepts.
+- Vector diagram and analysis of distance, displacement, velocity and acceleration.
+- Presentation mode and CSV summary download.
+
+## Files
+- `app.py` — Streamlit application
+- `requirements.txt` — Python dependencies
+- `README.md` — documentation
+
+## Run locally
+1. Install Python 3.9 or later.
+2. Open a terminal in this folder.
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run: `streamlit run app.py`
+5. Open the local URL shown in the terminal, usually `http://localhost:8501`.
+
+## Deploy using GitHub and Streamlit Community Cloud
+1. Create a GitHub repository.
+2. Upload `app.py`, `requirements.txt`, and `README.md` to its root.
+3. Sign in at https://share.streamlit.io/ using GitHub.
+4. Select **Create app**, choose your repository and branch, and set `app.py` as the main file.
+5. Click **Deploy**.
+
+## Physics equations
+Let `u` be initial speed, `theta` launch angle, `h0` launch height, `g` gravitational acceleration and `t` time.
+
+- `ux = u cos(theta)`
+- `uy = u sin(theta)`
+- `x(t) = ux * t`
+- `y(t) = h0 + uy*t - 0.5*g*t^2`
+- `T = (uy + sqrt(uy^2 + 2*g*h0)) / g`
+- `Hmax = h0 + uy^2/(2*g)`
+- `R = ux*T`
+- `ax = 0`, `ay = -g`
+
+For equal launch and landing heights, `R = u^2 sin(2*theta)/g`.
+
+## Assumptions and limitations
+This is an ideal educational model. It ignores air resistance, wind, object rotation, tumbling, collisions and obstacles. The object is treated as a point mass and the landing surface is level with the ground reference. Do not use it to plan or operate real construction-material launches.
